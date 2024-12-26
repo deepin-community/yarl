@@ -1,4 +1,5 @@
-from urllib.parse import SplitResult
+from enum import Enum
+from urllib.parse import SplitResult, quote, unquote
 
 import pytest
 
@@ -8,7 +9,7 @@ from yarl import URL
 def test_inheritance():
     with pytest.raises(TypeError) as ctx:
 
-        class MyURL(URL):  # type: ignore[misc]
+        class MyURL(URL):
             pass
 
     assert (
@@ -63,8 +64,8 @@ def test_origin():
 
 
 def test_origin_nonascii():
-    url = URL("http://user:password@историк.рф:8888/path/to?a=1&b=2")
-    assert str(url.origin()) == "http://xn--h1aagokeh.xn--p1ai:8888"
+    url = URL("http://user:password@оун-упа.укр:8888/path/to?a=1&b=2")
+    assert str(url.origin()) == "http://xn----8sb1bdhvc.xn--j1amh:8888"
 
 
 def test_origin_ipv6():
@@ -113,11 +114,13 @@ def test_scheme():
 def test_raw_user():
     url = URL("http://user@example.com")
     assert "user" == url.raw_user
+    assert url.raw_user == url._val.username
 
 
 def test_raw_user_non_ascii():
-    url = URL("http://вася@example.com")
-    assert "%D0%B2%D0%B0%D1%81%D1%8F" == url.raw_user
+    url = URL("http://бажан@example.com")
+    assert "%D0%B1%D0%B0%D0%B6%D0%B0%D0%BD" == url.raw_user
+    assert url.raw_user == url._val.username
 
 
 def test_no_user():
@@ -126,18 +129,20 @@ def test_no_user():
 
 
 def test_user_non_ascii():
-    url = URL("http://вася@example.com")
-    assert "вася" == url.user
+    url = URL("http://бажан@example.com")
+    assert "бажан" == url.user
 
 
 def test_raw_password():
     url = URL("http://user:password@example.com")
     assert "password" == url.raw_password
+    assert url.raw_password == url._val.password
 
 
 def test_raw_password_non_ascii():
     url = URL("http://user:пароль@example.com")
     assert "%D0%BF%D0%B0%D1%80%D0%BE%D0%BB%D1%8C" == url.raw_password
+    assert url.raw_password == url._val.password
 
 
 def test_password_non_ascii():
@@ -151,6 +156,14 @@ def test_password_without_user():
     assert "password" == url.password
 
 
+def test_empty_password_without_user():
+    url = URL("http://:@example.com")
+    assert url.user is None
+    assert url.password == ""
+    assert url.raw_password == ""
+    assert url.raw_password == url._val.password
+
+
 def test_user_empty_password():
     url = URL("http://user:@example.com")
     assert "user" == url.user
@@ -160,16 +173,36 @@ def test_user_empty_password():
 def test_raw_host():
     url = URL("http://example.com")
     assert "example.com" == url.raw_host
+    assert url.raw_host == url._val.hostname
+
+
+@pytest.mark.parametrize(
+    ("host"),
+    [
+        ("example.com"),
+        ("[::1]"),
+        ("xn--gnter-4ya.com"),
+    ],
+)
+def test_host_subcomponent(host: str):
+    url = URL(f"http://{host}")
+    assert url.host_subcomponent == host
+
+
+def test_host_subcomponent_return_idna_encoded_host():
+    url = URL("http://оун-упа.укр")
+    assert url.host_subcomponent == "xn----8sb1bdhvc.xn--j1amh"
 
 
 def test_raw_host_non_ascii():
-    url = URL("http://историк.рф")
-    assert "xn--h1aagokeh.xn--p1ai" == url.raw_host
+    url = URL("http://оун-упа.укр")
+    assert "xn----8sb1bdhvc.xn--j1amh" == url.raw_host
+    assert url.raw_host == url._val.hostname
 
 
 def test_host_non_ascii():
-    url = URL("http://историк.рф")
-    assert "историк.рф" == url.host
+    url = URL("http://оун-упа.укр")
+    assert "оун-упа.укр" == url.host
 
 
 def test_localhost():
@@ -185,16 +218,19 @@ def test_host_with_underscore():
 def test_raw_host_when_port_is_specified():
     url = URL("http://example.com:8888")
     assert "example.com" == url.raw_host
+    assert url.raw_host == url._val.hostname
 
 
 def test_raw_host_from_str_with_ipv4():
     url = URL("http://127.0.0.1:80")
     assert url.raw_host == "127.0.0.1"
+    assert url.raw_host == url._val.hostname
 
 
 def test_raw_host_from_str_with_ipv6():
     url = URL("http://[::1]:80")
     assert url.raw_host == "::1"
+    assert url.raw_host == url._val.hostname
 
 
 def test_authority_full() -> None:
@@ -209,36 +245,40 @@ def test_authority_short() -> None:
 
 
 def test_authority_full_nonasci() -> None:
-    url = URL("http://ваня:пароль@айдеко.рф:8080/path")
+    url = URL("http://степан:пароль@слава.укр:8080/path")
     assert url.raw_authority == (
-        "%D0%B2%D0%B0%D0%BD%D1%8F:%D0%BF%D0%B0%D1%80%D0%BE%D0%BB%D1%8C@"
-        "xn--80aidohy.xn--p1ai:8080"
+        "%D1%81%D1%82%D0%B5%D0%BF%D0%B0%D0%BD:"
+        "%D0%BF%D0%B0%D1%80%D0%BE%D0%BB%D1%8C@"
+        "xn--80aaf8a3a.xn--j1amh:8080"
     )
-    assert url.authority == "ваня:пароль@айдеко.рф:8080"
+    assert url.authority == "степан:пароль@слава.укр:8080"
+
+
+def test_authority_unknown_scheme() -> None:
+    v = "scheme://user:password@example.com:43/path/to?a=1&b=2"
+    url = URL(v)
+    assert str(url) == v
 
 
 def test_lowercase():
     url = URL("http://gitHUB.com")
     assert url.raw_host == "github.com"
     assert url.host == url.raw_host
+    assert url.raw_host == url._val.hostname
 
 
 def test_lowercase_nonascii():
-    url = URL("http://Айдеко.Рф")
-    assert url.raw_host == "xn--80aidohy.xn--p1ai"
-    assert url.host == "айдеко.рф"
+    url = URL("http://Слава.Укр")
+    assert url.raw_host == "xn--80aaf8a3a.xn--j1amh"
+    assert url.raw_host == url._val.hostname
+    assert url.host == "слава.укр"
 
 
 def test_compressed_ipv6():
     url = URL("http://[1DEC:0:0:0::1]")
     assert url.raw_host == "1dec::1"
     assert url.host == url.raw_host
-
-
-def test_ipv6_zone():
-    url = URL("http://[fe80::822a:a8ff:fe49:470c%тест%42]:123")
-    assert url.raw_host == "fe80::822a:a8ff:fe49:470c%тест%42"
-    assert url.host == url.raw_host
+    assert url.raw_host == url._val.hostname
 
 
 def test_ipv4_zone():
@@ -246,16 +286,19 @@ def test_ipv4_zone():
     url = URL("http://1.2.3.4%тест%42:123")
     assert url.raw_host == "1.2.3.4%тест%42"
     assert url.host == url.raw_host
+    assert url.raw_host == url._val.hostname
 
 
 def test_port_for_explicit_port():
     url = URL("http://example.com:8888")
     assert 8888 == url.port
+    assert url.explicit_port == url._val.port
 
 
 def test_port_for_implicit_port():
     url = URL("http://example.com")
     assert 80 == url.port
+    assert url.explicit_port == url._val.port
 
 
 def test_port_for_relative_url():
@@ -271,21 +314,25 @@ def test_port_for_unknown_scheme():
 def test_explicit_port_for_explicit_port():
     url = URL("http://example.com:8888")
     assert 8888 == url.explicit_port
+    assert url.explicit_port == url._val.port
 
 
 def test_explicit_port_for_implicit_port():
     url = URL("http://example.com")
     assert url.explicit_port is None
+    assert url.explicit_port == url._val.port
 
 
 def test_explicit_port_for_relative_url():
     url = URL("/path/to")
     assert url.explicit_port is None
+    assert url.explicit_port == url._val.port
 
 
 def test_explicit_port_for_unknown_scheme():
     url = URL("unknown://example.com")
     assert url.explicit_port is None
+    assert url.explicit_port == url._val.port
 
 
 def test_raw_path_string_empty():
@@ -299,13 +346,13 @@ def test_raw_path():
 
 
 def test_raw_path_non_ascii():
-    url = URL("http://example.com/путь/сюда")
-    assert "/%D0%BF%D1%83%D1%82%D1%8C/%D1%81%D1%8E%D0%B4%D0%B0" == url.raw_path
+    url = URL("http://example.com/шлях/сюди")
+    assert "/%D1%88%D0%BB%D1%8F%D1%85/%D1%81%D1%8E%D0%B4%D0%B8" == url.raw_path
 
 
 def test_path_non_ascii():
-    url = URL("http://example.com/путь/сюда")
-    assert "/путь/сюда" == url.path
+    url = URL("http://example.com/шлях/сюди")
+    assert "/шлях/сюди" == url.path
 
 
 def test_path_with_spaces():
@@ -314,6 +361,49 @@ def test_path_with_spaces():
 
     url = URL("http://example.com/a b")
     assert "/a b" == url.path
+
+
+def test_path_with_2F():
+    """Path should decode %2F."""
+
+    url = URL("http://example.com/foo/bar%2fbaz")
+    assert url.path == "/foo/bar/baz"
+
+
+def test_path_safe_with_2F():
+    """Path safe should not decode %2F, otherwise it may look like a path separator."""
+
+    url = URL("http://example.com/foo/bar%2fbaz")
+    assert url.path_safe == "/foo/bar%2Fbaz"
+
+
+def test_path_safe_with_25():
+    """Path safe should not decode %25, otherwise it is prone to double unquoting."""
+
+    url = URL("http://example.com/foo/bar%252Fbaz")
+    assert url.path_safe == "/foo/bar%252Fbaz"
+    unquoted = url.path_safe.replace("%2F", "/").replace("%25", "%")
+    assert unquoted == "/foo/bar%2Fbaz"
+
+
+@pytest.mark.parametrize(
+    "original_path",
+    [
+        "m+@bar/baz",
+        "m%2B@bar/baz",
+        "m%252B@bar/baz",
+        "m%2F@bar/baz",
+    ],
+)
+def test_path_safe_only_round_trips(original_path: str) -> None:
+    """Path safe can round trip with documented decode method."""
+    encoded_once = quote(original_path, safe="")
+    encoded_twice = quote(encoded_once, safe="")
+
+    url = URL(f"http://example.com/{encoded_twice}")
+    unquoted = url.path_safe.replace("%2F", "/").replace("%25", "%")
+    assert unquoted == f"/{encoded_once}"
+    assert unquote(unquoted) == f"/{original_path}"
 
 
 def test_raw_path_for_empty_url():
@@ -357,8 +447,8 @@ def test_raw_path_qs():
     assert url.raw_path_qs == "/?%D0%B1=%D0%B2&%D1%8E=%D0%BA"
     url = URL("http://example.com/path?б=в&ю=к")
     assert url.raw_path_qs == "/path?%D0%B1=%D0%B2&%D1%8E=%D0%BA"
-    url = URL("http://example.com/путь?a=1&b=2")
-    assert url.raw_path_qs == "/%D0%BF%D1%83%D1%82%D1%8C?a=1&b=2"
+    url = URL("http://example.com/шлях?a=1&b=2")
+    assert url.raw_path_qs == "/%D1%88%D0%BB%D1%8F%D1%85?a=1&b=2"
 
 
 def test_query_string_spaces():
@@ -380,8 +470,8 @@ def test_raw_fragment():
 
 
 def test_raw_fragment_non_ascii():
-    url = URL("http://example.com/path#якорь")
-    assert "%D1%8F%D0%BA%D0%BE%D1%80%D1%8C" == url.raw_fragment
+    url = URL("http://example.com/path#якір")
+    assert "%D1%8F%D0%BA%D1%96%D1%80" == url.raw_fragment
 
 
 def test_raw_fragment_safe():
@@ -390,8 +480,8 @@ def test_raw_fragment_safe():
 
 
 def test_fragment_non_ascii():
-    url = URL("http://example.com/path#якорь")
-    assert "якорь" == url.fragment
+    url = URL("http://example.com/path#якір")
+    assert "якір" == url.fragment
 
 
 def test_raw_parts_empty():
@@ -431,7 +521,7 @@ def test_raw_parts_for_relative_path_starting_from_slash():
 
 def test_raw_parts_for_relative_double_path():
     url = URL("path/to")
-    assert url.raw_parts == url.raw_parts
+    assert ("path", "to") == url.raw_parts
 
 
 def test_parts_for_empty_url():
@@ -440,17 +530,17 @@ def test_parts_for_empty_url():
 
 
 def test_raw_parts_non_ascii():
-    url = URL("http://example.com/путь/сюда")
+    url = URL("http://example.com/шлях/сюди")
     assert (
         "/",
-        "%D0%BF%D1%83%D1%82%D1%8C",
-        "%D1%81%D1%8E%D0%B4%D0%B0",
+        "%D1%88%D0%BB%D1%8F%D1%85",
+        "%D1%81%D1%8E%D0%B4%D0%B8",
     ) == url.raw_parts
 
 
 def test_parts_non_ascii():
-    url = URL("http://example.com/путь/сюда")
-    assert ("/", "путь", "сюда") == url.parts
+    url = URL("http://example.com/шлях/сюди")
+    assert ("/", "шлях", "сюди") == url.parts
 
 
 def test_name_for_empty_url():
@@ -494,8 +584,8 @@ def test_relative_raw_name_slash():
 
 
 def test_name_non_ascii():
-    url = URL("http://example.com/путь")
-    assert url.name == "путь"
+    url = URL("http://example.com/шлях")
+    assert url.name == "шлях"
 
 
 def test_suffix_for_empty_url():
@@ -539,8 +629,8 @@ def test_relative_raw_suffix_dot():
 
 
 def test_suffix_non_ascii():
-    url = URL("http://example.com/путь.суффикс")
-    assert url.suffix == ".суффикс"
+    url = URL("http://example.com/шлях.суфікс")
+    assert url.suffix == ".суфікс"
 
 
 def test_suffix_with_empty_name():
@@ -599,8 +689,8 @@ def test_relative_raw_suffixes_dot():
 
 
 def test_suffixes_non_ascii():
-    url = URL("http://example.com/путь.суффикс")
-    assert url.suffixes == (".суффикс",)
+    url = URL("http://example.com/шлях.суфікс")
+    assert url.suffixes == (".суфікс",)
 
 
 def test_suffixes_with_empty_name():
@@ -690,29 +780,51 @@ def test_clear_query_on_getting_parent_toplevel():
 
 
 def test_div_root():
-    url = URL("http://example.com")
-    assert str(url / "path" / "to") == "http://example.com/path/to"
+    url = URL("http://example.com") / "path" / "to"
+    assert str(url) == "http://example.com/path/to"
+    assert url.raw_path == "/path/to"
 
 
 def test_div_root_with_slash():
-    url = URL("http://example.com/")
-    assert str(url / "path" / "to") == "http://example.com/path/to"
+    url = URL("http://example.com/") / "path" / "to"
+    assert str(url) == "http://example.com/path/to"
+    assert url.raw_path == "/path/to"
 
 
 def test_div():
-    url = URL("http://example.com/path")
-    assert str(url / "to") == "http://example.com/path/to"
+    url = URL("http://example.com/path") / "to"
+    assert str(url) == "http://example.com/path/to"
+    assert url.raw_path == "/path/to"
 
 
 def test_div_with_slash():
-    url = URL("http://example.com/path/")
-    assert str(url / "to") == "http://example.com/path/to"
+    url = URL("http://example.com/path/") / "to"
+    assert str(url) == "http://example.com/path/to"
+    assert url.raw_path == "/path/to"
 
 
 def test_div_path_starting_from_slash_is_forbidden():
     url = URL("http://example.com/path/")
     with pytest.raises(ValueError):
         url / "/to/others"
+
+
+class StrEnum(str, Enum):
+    spam = "ham"
+
+    def __str__(self):
+        return self.value
+
+
+def test_div_path_srting_subclass():
+    url = URL("http://example.com/path/") / StrEnum.spam
+    assert str(url) == "http://example.com/path/ham"
+
+
+def test_div_bad_type():
+    url = URL("http://example.com/path/")
+    with pytest.raises(TypeError):
+        url / 3
 
 
 def test_div_cleanup_query_and_fragment():
@@ -736,15 +848,15 @@ def test_div_for_relative_url_started_with_slash():
 
 
 def test_div_non_ascii():
-    url = URL("http://example.com/сюда")
-    url2 = url / "туда"
-    assert url2.path == "/сюда/туда"
-    assert url2.raw_path == "/%D1%81%D1%8E%D0%B4%D0%B0/%D1%82%D1%83%D0%B4%D0%B0"
-    assert url2.parts == ("/", "сюда", "туда")
+    url = URL("http://example.com/сюди")
+    url2 = url / "туди"
+    assert url2.path == "/сюди/туди"
+    assert url2.raw_path == "/%D1%81%D1%8E%D0%B4%D0%B8/%D1%82%D1%83%D0%B4%D0%B8"
+    assert url2.parts == ("/", "сюди", "туди")
     assert url2.raw_parts == (
         "/",
-        "%D1%81%D1%8E%D0%B4%D0%B0",
-        "%D1%82%D1%83%D0%B4%D0%B0",
+        "%D1%81%D1%8E%D0%B4%D0%B8",
+        "%D1%82%D1%83%D0%B4%D0%B8",
     )
 
 
@@ -765,6 +877,203 @@ def test_div_with_colon_and_at():
 def test_div_with_dots():
     url = URL("http://example.com/base") / "../path/./to"
     assert url.raw_path == "/path/to"
+
+
+# joinpath
+
+
+@pytest.mark.parametrize(
+    "base,to_join,expected",
+    [
+        pytest.param("", ("path", "to"), "http://example.com/path/to", id="root"),
+        pytest.param(
+            "/", ("path", "to"), "http://example.com/path/to", id="root-with-slash"
+        ),
+        pytest.param("/path", ("to",), "http://example.com/path/to", id="path"),
+        pytest.param(
+            "/path/", ("to",), "http://example.com/path/to", id="path-with-slash"
+        ),
+        pytest.param(
+            "/path", ("",), "http://example.com/path/", id="path-add-trailing-slash"
+        ),
+        pytest.param(
+            "/path?a=1#frag",
+            ("to",),
+            "http://example.com/path/to",
+            id="cleanup-query-and-fragment",
+        ),
+        pytest.param("", ("path/",), "http://example.com/path/", id="trailing-slash"),
+        pytest.param(
+            "",
+            (
+                "path",
+                "",
+            ),
+            "http://example.com/path/",
+            id="trailing-slash-empty-string",
+        ),
+        pytest.param(
+            "", ("path/", "to/"), "http://example.com/path/to/", id="duplicate-slash"
+        ),
+        pytest.param("", (), "http://example.com", id="empty-segments"),
+        pytest.param(
+            "/", ("path/",), "http://example.com/path/", id="base-slash-trailing-slash"
+        ),
+        pytest.param(
+            "/",
+            ("path/", "to/"),
+            "http://example.com/path/to/",
+            id="base-slash-duplicate-slash",
+        ),
+        pytest.param("/", (), "http://example.com", id="base-slash-empty-segments"),
+    ],
+)
+def test_joinpath(base, to_join, expected):
+    url = URL(f"http://example.com{base}")
+    assert str(url.joinpath(*to_join)) == expected
+
+
+@pytest.mark.parametrize(
+    "base,to_join,expected",
+    [
+        pytest.param("path", "a", "path/a", id="default_default"),
+        pytest.param("path", "./a", "path/a", id="default_relative"),
+        pytest.param("path/", "a", "path/a", id="empty-segment_default"),
+        pytest.param("path/", "./a", "path/a", id="empty-segment_relative"),
+        pytest.param("path", ".//a", "path//a", id="default_empty-segment"),
+        pytest.param("path/", ".//a", "path//a", id="empty-segment_empty_segment"),
+        pytest.param("path//", "a", "path//a", id="empty-segments_default"),
+        pytest.param("path//", "./a", "path//a", id="empty-segments_relative"),
+        pytest.param("path//", ".//a", "path///a", id="empty-segments_empty-segment"),
+        pytest.param("path", "a/", "path/a/", id="default_trailing-empty-segment"),
+        pytest.param("path", "a//", "path/a//", id="default_trailing-empty-segments"),
+        pytest.param("path", "a//b", "path/a//b", id="default_embedded-empty-segment"),
+    ],
+)
+def test_joinpath_empty_segments(base, to_join, expected):
+    url = URL(f"http://example.com/{base}")
+    assert (
+        f"http://example.com/{expected}" == str(url.joinpath(to_join))
+        and str(url / to_join) == f"http://example.com/{expected}"
+    )
+
+
+def test_joinpath_single_empty_segments():
+    """joining standalone empty segments does not create empty segments"""
+    a = URL("/1//2///3")
+    assert a.parts == ("/", "1", "", "2", "", "", "3")
+    b = URL("scheme://host").joinpath(*a.parts[1:])
+    assert b.path == "/1/2/3"
+
+
+@pytest.mark.parametrize(
+    "url,to_join,expected",
+    [
+        pytest.param(URL(), ("a",), ("a",), id="empty-url"),
+        pytest.param(URL("a"), ("b",), ("a", "b"), id="relative-path"),
+        pytest.param(URL("a"), ("b", "", "c"), ("a", "b", "c"), id="empty-element"),
+        pytest.param(URL("/a"), ("b"), ("/", "a", "b"), id="absolute-path"),
+        pytest.param(URL(), ("a/",), ("a", ""), id="trailing-slash"),
+        pytest.param(URL(), ("a/", "b/"), ("a", "b", ""), id="duplicate-slash"),
+        pytest.param(URL(), (), ("",), id="empty-segments"),
+    ],
+)
+def test_joinpath_relative(url, to_join, expected):
+    assert url.joinpath(*to_join).raw_parts == expected
+
+
+@pytest.mark.parametrize(
+    "url,to_join,encoded,e_path,e_raw_path,e_parts,e_raw_parts",
+    [
+        pytest.param(
+            "http://example.com/сюди",
+            ("туди",),
+            False,
+            "/сюди/туди",
+            "/%D1%81%D1%8E%D0%B4%D0%B8/%D1%82%D1%83%D0%B4%D0%B8",
+            ("/", "сюди", "туди"),
+            ("/", "%D1%81%D1%8E%D0%B4%D0%B8", "%D1%82%D1%83%D0%B4%D0%B8"),
+            id="non-ascii",
+        ),
+        pytest.param(
+            "http://example.com/path",
+            ("%cf%80",),
+            False,
+            "/path/%cf%80",
+            "/path/%25cf%2580",
+            ("/", "path", "%cf%80"),
+            ("/", "path", "%25cf%2580"),
+            id="percent-encoded",
+        ),
+        pytest.param(
+            "http://example.com/path",
+            ("%cf%80",),
+            True,
+            "/path/π",
+            "/path/%cf%80",
+            ("/", "path", "π"),
+            ("/", "path", "%cf%80"),
+            id="encoded-percent-encoded",
+        ),
+    ],
+)
+def test_joinpath_encoding(
+    url, to_join, encoded, e_path, e_raw_path, e_parts, e_raw_parts
+):
+    joined = URL(url).joinpath(*to_join, encoded=encoded)
+    assert joined.path == e_path
+    assert joined.raw_path == e_raw_path
+    assert joined.parts == e_parts
+    assert joined.raw_parts == e_raw_parts
+
+
+@pytest.mark.parametrize(
+    "to_join,expected",
+    [
+        pytest.param(("path:abc@123",), "/base/path:abc@123", id="with-colon-and-at"),
+        pytest.param(("..", "path", ".", "to"), "/path/to", id="with-dots"),
+    ],
+)
+def test_joinpath_edgecases(to_join, expected):
+    url = URL("http://example.com/base").joinpath(*to_join)
+    assert url.raw_path == expected
+
+
+def test_joinpath_path_starting_from_slash_is_forbidden():
+    url = URL("http://example.com/path/")
+    with pytest.raises(
+        ValueError, match="Appending path .* starting from slash is forbidden"
+    ):
+        assert url.joinpath("/to/others")
+
+
+PATHS = [
+    # No dots
+    ("", ""),
+    ("path", "path"),
+    # Single-dot
+    ("path/to", "path/to"),
+    ("././path/to", "path/to"),
+    ("path/./to", "path/to"),
+    ("path/././to", "path/to"),
+    ("path/to/.", "path/to/"),
+    ("path/to/./.", "path/to/"),
+    # Double-dots
+    ("../path/to", "path/to"),
+    ("path/../to", "to"),
+    ("path/../../to", "to"),
+    # Non-ASCII characters
+    ("μονοπάτι/../../να/ᴜɴɪ/ᴄᴏᴅᴇ", "να/ᴜɴɪ/ᴄᴏᴅᴇ"),
+    ("μονοπάτι/../../να/𝕦𝕟𝕚/𝕔𝕠𝕕𝕖/.", "να/𝕦𝕟𝕚/𝕔𝕠𝕕𝕖/"),
+]
+
+
+@pytest.mark.parametrize("original,expected", PATHS)
+def test_join_path_normalized(original: str, expected: str) -> None:
+    """Test that joinpath normalizes paths."""
+    base_url = URL("http://example.com")
+    new_url = base_url.joinpath(original)
+    assert new_url.path == f"/{expected}"
 
 
 # with_path
@@ -953,11 +1262,11 @@ def test_with_name_empty():
 
 
 def test_with_name_non_ascii():
-    url = URL("http://example.com/path").with_name("путь")
-    assert url.path == "/путь"
-    assert url.raw_path == "/%D0%BF%D1%83%D1%82%D1%8C"
-    assert url.parts == ("/", "путь")
-    assert url.raw_parts == ("/", "%D0%BF%D1%83%D1%82%D1%8C")
+    url = URL("http://example.com/path").with_name("шлях")
+    assert url.path == "/шлях"
+    assert url.raw_path == "/%D1%88%D0%BB%D1%8F%D1%85"
+    assert url.parts == ("/", "шлях")
+    assert url.raw_parts == ("/", "%D1%88%D0%BB%D1%8F%D1%85")
 
 
 def test_with_name_percent_encoded():
@@ -1045,11 +1354,11 @@ def test_with_suffix_empty():
 
 
 def test_with_suffix_non_ascii():
-    url = URL("http://example.com/path").with_suffix(".путь")
-    assert url.path == "/path.путь"
-    assert url.raw_path == "/path.%D0%BF%D1%83%D1%82%D1%8C"
-    assert url.parts == ("/", "path.путь")
-    assert url.raw_parts == ("/", "path.%D0%BF%D1%83%D1%82%D1%8C")
+    url = URL("http://example.com/path").with_suffix(".шлях")
+    assert url.path == "/path.шлях"
+    assert url.raw_path == "/path.%D1%88%D0%BB%D1%8F%D1%85"
+    assert url.parts == ("/", "path.шлях")
+    assert url.raw_parts == ("/", "path.%D1%88%D0%BB%D1%8F%D1%85")
 
 
 def test_with_suffix_percent_encoded():
@@ -1108,26 +1417,31 @@ def test_with_suffix_replace():
 def test_is_absolute_for_relative_url():
     url = URL("/path/to")
     assert not url.is_absolute()
+    assert not url.absolute
 
 
 def test_is_absolute_for_absolute_url():
     url = URL("http://example.com")
     assert url.is_absolute()
+    assert url.absolute
 
 
 def test_is_non_absolute_for_empty_url():
     url = URL()
     assert not url.is_absolute()
+    assert not url.absolute
 
 
 def test_is_non_absolute_for_empty_url2():
     url = URL("")
     assert not url.is_absolute()
+    assert not url.absolute
 
 
 def test_is_absolute_path_starting_from_double_slash():
     url = URL("//www.python.org")
     assert url.is_absolute()
+    assert url.absolute
 
 
 # is_default_port
@@ -1146,6 +1460,7 @@ def test_is_default_port_for_absolute_url_without_port():
 def test_is_default_port_for_absolute_url_with_default_port():
     url = URL("http://example.com:80")
     assert url.is_default_port()
+    assert str(url) == "http://example.com"
 
 
 def test_is_default_port_for_absolute_url_with_nondefault_port():
@@ -1200,8 +1515,8 @@ def test_from_ascii_login():
 
 
 def test_from_non_ascii_login():
-    url = URL("http://вася@host:1234/")
-    assert ("http://" "%D0%B2%D0%B0%D1%81%D1%8F" "@host:1234/") == str(url)
+    url = URL("http://бажан@host:1234/")
+    assert ("http://%D0%B1%D0%B0%D0%B6%D0%B0%D0%BD@host:1234/") == str(url)
 
 
 def test_from_ascii_login_and_password():
@@ -1220,10 +1535,10 @@ def test_from_ascii_login_and_password():
 
 
 def test_from_non_ascii_login_and_password():
-    url = URL("http://вася:пароль@host:1234/")
+    url = URL("http://бажан:пароль@host:1234/")
     assert (
         "http://"
-        "%D0%B2%D0%B0%D1%81%D1%8F"
+        "%D0%B1%D0%B0%D0%B6%D0%B0%D0%BD"
         ":%D0%BF%D0%B0%D1%80%D0%BE%D0%BB%D1%8C"
         "@host:1234/"
     ) == str(url)
@@ -1244,16 +1559,16 @@ def test_from_ascii_path_lower_case():
 
 
 def test_from_non_ascii_path():
-    url = URL("http://example.com/путь/туда")
+    url = URL("http://example.com/шлях/туди")
     assert (
-        "http://example.com/" "%D0%BF%D1%83%D1%82%D1%8C/%D1%82%D1%83%D0%B4%D0%B0"
+        "http://example.com/%D1%88%D0%BB%D1%8F%D1%85/%D1%82%D1%83%D0%B4%D0%B8"
     ) == str(url)
 
 
 def test_bytes():
-    url = URL("http://example.com/путь/туда")
+    url = URL("http://example.com/шлях/туди")
     assert (
-        b"http://example.com/%D0%BF%D1%83%D1%82%D1%8C/%D1%82%D1%83%D0%B4%D0%B0"
+        b"http://example.com/%D1%88%D0%BB%D1%8F%D1%85/%D1%82%D1%83%D0%B4%D0%B8"
         == bytes(url)
     )
 
@@ -1464,29 +1779,112 @@ def test_join_from_rfc_3986_abnormal(url, expected):
     assert base.join(url) == expected
 
 
+EMPTY_SEGMENTS = [
+    (
+        "https://web.archive.org/web/",
+        "./https://github.com/aio-libs/yarl",
+        "https://web.archive.org/web/https://github.com/aio-libs/yarl",
+    ),
+    (
+        "https://web.archive.org/web/https://github.com/",
+        "aio-libs/yarl",
+        "https://web.archive.org/web/https://github.com/aio-libs/yarl",
+    ),
+]
+
+
+@pytest.mark.parametrize("base,url,expected", EMPTY_SEGMENTS)
+def test_join_empty_segments(base, url, expected):
+    base = URL(base)
+    url = URL(url)
+    expected = URL(expected)
+    joined = base.join(url)
+    assert joined == expected
+
+
+SIMPLE_BASE = "http://a/b/c/d"
+URLLIB_URLJOIN = [
+    ("", "http://a/b/c/g?y/./x", "http://a/b/c/g?y/./x"),
+    ("", "http://a/./g", "http://a/./g"),
+    ("svn://pathtorepo/dir1", "dir2", "svn://pathtorepo/dir2"),
+    ("svn+ssh://pathtorepo/dir1", "dir2", "svn+ssh://pathtorepo/dir2"),
+    ("ws://a/b", "g", "ws://a/g"),
+    ("wss://a/b", "g", "wss://a/g"),
+    # test for issue22118 duplicate slashes
+    (SIMPLE_BASE + "/", "foo", SIMPLE_BASE + "/foo"),
+    # Non-RFC-defined tests, covering variations of base and trailing
+    # slashes
+    ("http://a/b/c/d/e/", "../../f/g/", "http://a/b/c/f/g/"),
+    ("http://a/b/c/d/e", "../../f/g/", "http://a/b/f/g/"),
+    ("http://a/b/c/d/e/", "/../../f/g/", "http://a/f/g/"),
+    ("http://a/b/c/d/e", "/../../f/g/", "http://a/f/g/"),
+    ("http://a/b/c/d/e/", "../../f/g", "http://a/b/c/f/g"),
+    ("http://a/b/", "../../f/g/", "http://a/f/g/"),
+    ("a", "b", "b"),
+    ("http:///", "..", "http:///"),
+    ("a/", "b", "a/b"),
+    ("a/b", "c", "a/c"),
+    ("a/b/", "c", "a/b/c"),
+    (
+        "https://x.org/",
+        "/?text=Hello+G%C3%BCnter",
+        "https://x.org/?text=Hello+G%C3%BCnter",
+    ),
+    (
+        "https://x.org/",
+        "?text=Hello+G%C3%BCnter",
+        "https://x.org/?text=Hello+G%C3%BCnter",
+    ),
+    ("http://example.com", "http://example.com", "http://example.com"),
+    ("http://x.org", "https://x.org#fragment", "https://x.org#fragment"),
+]
+
+
+@pytest.mark.parametrize("base,url,expected", URLLIB_URLJOIN)
+def test_join_cpython_urljoin(base, url, expected):
+    # tests from cpython urljoin
+    base = URL(base)
+    url = URL(url)
+    expected = URL(expected)
+    joined = base.join(url)
+    assert joined == expected
+
+
+def test_join_preserves_leading_slash():
+    """Test that join preserves leading slash in path."""
+    base = URL.build(scheme="https", host="localhost", port=443)
+    new = base.join(URL("") / "_msearch")
+    assert str(new) == "https://localhost/_msearch"
+    assert new.path == "/_msearch"
+
+
+def test_empty_authority():
+    assert URL("http:///").authority == ""
+
+
 def test_split_result_non_decoded():
     with pytest.raises(ValueError):
         URL(SplitResult("http", "example.com", "path", "qs", "frag"))
 
 
 def test_human_repr():
-    url = URL("http://вася:пароль@хост.домен:8080/путь/сюда?арг=вал#фраг")
+    url = URL("http://бажан:пароль@хост.домен:8080/шлях/сюди?арг=вал#фраг")
     s = url.human_repr()
     assert URL(s) == url
-    assert s == "http://вася:пароль@хост.домен:8080/путь/сюда?арг=вал#фраг"
+    assert s == "http://бажан:пароль@хост.домен:8080/шлях/сюди?арг=вал#фраг"
 
 
 def test_human_repr_defaults():
-    url = URL("путь")
+    url = URL("шлях")
     s = url.human_repr()
-    assert s == "путь"
+    assert s == "шлях"
 
 
 def test_human_repr_default_port():
-    url = URL("http://вася:пароль@хост.домен/путь/сюда?арг=вал#фраг")
+    url = URL("http://бажан:пароль@хост.домен/шлях/сюди?арг=вал#фраг")
     s = url.human_repr()
     assert URL(s) == url
-    assert s == "http://вася:пароль@хост.домен/путь/сюда?арг=вал#фраг"
+    assert s == "http://бажан:пароль@хост.домен/шлях/сюди?арг=вал#фраг"
 
 
 def test_human_repr_ipv6():
@@ -1514,8 +1912,8 @@ def test_human_repr_delimiters():
     s = url.human_repr()
     assert URL(s) == url
     assert (
-        s == "http:// !\"%23$%25&'()*+,-.%2F%3A;<=>%3F%40[\\]^_`{|}~"
-        ": !\"%23$%25&'()*+,-.%2F%3A;<=>%3F%40[\\]^_`{|}~"
+        s == "http:// !\"%23$%25&'()*+,-.%2F%3A;<=>%3F%40%5B\\%5D^_`{|}~"
+        ": !\"%23$%25&'()*+,-.%2F%3A;<=>%3F%40%5B\\%5D^_`{|}~"
         "@хост.домен:8080"
         "/ !\"%23$%25&'()*+,-./:;<=>%3F@[\\]^_`{|}~"
         "? !\"%23$%25%26'()*%2B,-./:%3B<%3D>?@[\\]^_`{|}~"
@@ -1527,20 +1925,20 @@ def test_human_repr_delimiters():
 def test_human_repr_non_printable():
     url = URL.build(
         scheme="http",
-        user="вася\n\xad\u200b",
+        user="бажан\n\xad\u200b",
         password="пароль\n\xad\u200b",
         host="хост.домен",
         port=8080,
-        path="/путь\n\xad\u200b",
+        path="/шлях\n\xad\u200b",
         query={"арг\n\xad\u200b": "вал\n\xad\u200b"},
         fragment="фраг\n\xad\u200b",
     )
     s = url.human_repr()
     assert URL(s) == url
     assert (
-        s == "http://вася%0A%C2%AD%E2%80%8B:пароль%0A%C2%AD%E2%80%8B"
+        s == "http://бажан%0A%C2%AD%E2%80%8B:пароль%0A%C2%AD%E2%80%8B"
         "@хост.домен:8080"
-        "/путь%0A%C2%AD%E2%80%8B"
+        "/шлях%0A%C2%AD%E2%80%8B"
         "?арг%0A%C2%AD%E2%80%8B=вал%0A%C2%AD%E2%80%8B"
         "#фраг%0A%C2%AD%E2%80%8B"
     )
@@ -1559,6 +1957,7 @@ def test_relative_is_relative():
     url = URL("http://user:pass@example.com:8080/path?a=b#frag")
     rel = url.relative()
     assert not rel.is_absolute()
+    assert not rel.absolute
 
 
 def test_relative_abs_parts_are_removed():
@@ -1590,3 +1989,83 @@ def test_requoting():
     u = URL("http://127.0.0.1/?next=http%3A//example.com/")
     assert u.raw_query_string == "next=http://example.com/"
     assert str(u) == "http://127.0.0.1/?next=http://example.com/"
+
+
+def test_join_query_string():
+    """Test that query strings are correctly joined."""
+    original = URL("http://127.0.0.1:62869")
+    path_url = URL(
+        "/api?start=2022-03-27T14:05:00%2B03:00&end=2022-03-27T16:05:00%2B03:00"
+    )
+    assert path_url.query.get("start") == "2022-03-27T14:05:00+03:00"
+    assert path_url.query.get("end") == "2022-03-27T16:05:00+03:00"
+    new = original.join(path_url)
+    assert new.query.get("start") == "2022-03-27T14:05:00+03:00"
+    assert new.query.get("end") == "2022-03-27T16:05:00+03:00"
+
+
+def test_join_query_string_with_special_chars():
+    """Test url joining when the query string has non-ascii params."""
+    original = URL("http://127.0.0.1")
+    path_url = URL("/api?text=%D1%82%D0%B5%D0%BA%D1%81%D1%82")
+    assert path_url.query.get("text") == "текст"
+    new = original.join(path_url)
+    assert new.query.get("text") == "текст"
+
+
+def test_join_encoded_url():
+    """Test that url encoded urls are correctly joined."""
+    original = URL("http://127.0.0.1:62869")
+    path_url = URL("/api/%34")
+    assert original.path == "/"
+    assert path_url.path == "/api/4"
+    new = original.join(path_url)
+    assert new.path == "/api/4"
+
+
+# cache
+
+
+def test_parsing_populates_cache():
+    """Test that parsing a URL populates the cache."""
+    url = URL("http://user:password@example.com:80/path?a=b#frag")
+    assert url._cache["raw_user"] == "user"
+    assert url._cache["raw_password"] == "password"
+    assert url._cache["raw_host"] == "example.com"
+    assert url._cache["explicit_port"] == 80
+    assert url._cache["raw_query_string"] == "a=b"
+    assert url._cache["raw_fragment"] == "frag"
+    assert url._cache["scheme"] == "http"
+    assert url.raw_user == "user"
+    assert url.raw_password == "password"
+    assert url.raw_host == "example.com"
+    assert url.explicit_port == 80
+    assert url.raw_query_string == "a=b"
+    assert url.raw_fragment == "frag"
+    assert url.scheme == "http"
+    url._cache.clear()
+    assert url.raw_user == "user"
+    assert url.raw_password == "password"
+    assert url.raw_host == "example.com"
+    assert url.explicit_port == 80
+    assert url.raw_query_string == "a=b"
+    assert url.raw_fragment == "frag"
+    assert url.scheme == "http"
+    assert url._cache["raw_user"] == "user"
+    assert url._cache["raw_password"] == "password"
+    assert url._cache["raw_host"] == "example.com"
+    assert url._cache["explicit_port"] == 80
+    assert url._cache["raw_query_string"] == "a=b"
+    assert url._cache["raw_fragment"] == "frag"
+    assert url._cache["scheme"] == "http"
+
+
+@pytest.mark.parametrize(
+    ("host", "is_authority"),
+    [
+        *(("other_gen_delim_" + c, False) for c in "[]"),
+    ],
+)
+def test_build_with_invalid_ipv6_host(host: str, is_authority: bool):
+    with pytest.raises(ValueError, match="Invalid IPv6 URL"):
+        URL(f"http://{host}/")

@@ -16,8 +16,13 @@ def test_with_scheme_uppercased():
 
 
 def test_with_scheme_for_relative_url():
-    with pytest.raises(ValueError):
-        URL("path/to").with_scheme("http")
+    """Test scheme can be set for relative URL."""
+    msg = "scheme replacement is not allowed for " "relative URLs for the http scheme"
+    with pytest.raises(ValueError, match=msg):
+        assert URL("path/to").with_scheme("http")
+
+    expected = URL("file:///absolute/path")
+    assert expected.with_scheme("file") == expected
 
 
 def test_with_scheme_invalid_type():
@@ -33,11 +38,11 @@ def test_with_user():
 
 def test_with_user_non_ascii():
     url = URL("http://example.com")
-    url2 = url.with_user("вася")
-    assert url2.raw_user == "%D0%B2%D0%B0%D1%81%D1%8F"
-    assert url2.user == "вася"
-    assert url2.raw_authority == "%D0%B2%D0%B0%D1%81%D1%8F@example.com"
-    assert url2.authority == "вася@example.com:80"
+    url2 = url.with_user("бажан")
+    assert url2.raw_user == "%D0%B1%D0%B0%D0%B6%D0%B0%D0%BD"
+    assert url2.user == "бажан"
+    assert url2.raw_authority == "%D0%B1%D0%B0%D0%B6%D0%B0%D0%BD@example.com"
+    assert url2.authority == "бажан@example.com:80"
 
 
 def test_with_user_percent_encoded():
@@ -159,11 +164,31 @@ def test_with_host_empty():
 
 def test_with_host_non_ascii():
     url = URL("http://example.com:123")
-    url2 = url.with_host("историк.рф")
-    assert url2.raw_host == "xn--h1aagokeh.xn--p1ai"
-    assert url2.host == "историк.рф"
-    assert url2.raw_authority == "xn--h1aagokeh.xn--p1ai:123"
-    assert url2.authority == "историк.рф:123"
+    url2 = url.with_host("оун-упа.укр")
+    assert url2.raw_host == "xn----8sb1bdhvc.xn--j1amh"
+    assert url2.host == "оун-упа.укр"
+    assert url2.raw_authority == "xn----8sb1bdhvc.xn--j1amh:123"
+    assert url2.authority == "оун-упа.укр:123"
+
+
+@pytest.mark.parametrize(
+    ("host", "is_authority"),
+    [
+        ("user:pass@host.com", True),
+        ("user@host.com", True),
+        ("host:com", False),
+        ("not_percent_encoded%Zf", False),
+        ("still_not_percent_encoded%fZ", False),
+        *(("other_gen_delim_" + c, False) for c in "/?#[]"),
+    ],
+)
+def test_with_invalid_host(host: str, is_authority: bool):
+    url = URL("http://example.com:123")
+    match = r"Host '[^']+' cannot contain '[^']+' \(at position \d+\)"
+    if is_authority:
+        match += ", if .* use 'authority' instead of 'host'"
+    with pytest.raises(ValueError, match=f"{match}$"):
+        url.with_host(host=host)
 
 
 def test_with_host_percent_encoded():
@@ -191,9 +216,37 @@ def test_with_port():
     assert str(url.with_port(8888)) == "http://example.com:8888"
 
 
+def test_with_default_port_normalization() -> None:
+    url = URL("http://example.com")
+    assert str(url.with_scheme("https")) == "https://example.com"
+    assert str(url.with_scheme("https").with_port(443)) == "https://example.com"
+    assert str(url.with_port(443).with_scheme("https")) == "https://example.com"
+
+
+def test_with_custom_port_normalization() -> None:
+    url = URL("http://example.com")
+    u88 = url.with_port(88)
+    assert str(u88) == "http://example.com:88"
+    assert str(u88.with_port(80)) == "http://example.com"
+    assert str(u88.with_scheme("https")) == "https://example.com:88"
+
+
+def test_with_explicit_port_normalization() -> None:
+    url = URL("http://example.com")
+    u80 = url.with_port(80)
+    assert str(u80) == "http://example.com"
+    assert str(u80.with_port(81)) == "http://example.com:81"
+    assert str(u80.with_scheme("https")) == "https://example.com:80"
+
+
+def test_with_port_with_no_port():
+    url = URL("http://example.com")
+    assert str(url.with_port(None)) == "http://example.com"
+
+
 def test_with_port_ipv6():
     url = URL("http://[::1]:8080/")
-    assert str(url.with_port(80)) == "http://[::1]:80/"
+    assert str(url.with_port(81)) == "http://[::1]:81/"
 
 
 def test_with_port_keeps_query_and_fragment():
@@ -214,3 +267,10 @@ def test_with_port_for_relative_url():
 def test_with_port_invalid_type():
     with pytest.raises(TypeError):
         URL("http://example.com").with_port("123")
+    with pytest.raises(TypeError):
+        URL("http://example.com").with_port(True)
+
+
+def test_with_port_invalid_range():
+    with pytest.raises(ValueError):
+        URL("http://example.com").with_port(-1)

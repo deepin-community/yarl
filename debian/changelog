@@ -1,8 +1,29 @@
-yarl (1.8.2-3deepin1) unstable; urgency=medium
+yarl (1.13.1-1) unstable; urgency=medium
 
-  * No source change upload against python 3.12.
+  * New upstream release
 
- -- Tianyu Chen <sweetyfish@deepin.org>  Mon, 08 Jul 2024 09:58:39 +0200
+ -- Piotr Ożarowski <piotr@debian.org>  Tue, 01 Oct 2024 16:10:29 +0200
+
+yarl (1.13.0-1) unstable; urgency=medium
+
+  * New upstream release
+
+ -- Piotr Ożarowski <piotr@debian.org>  Fri, 27 Sep 2024 15:40:07 +0200
+
+yarl (1.9.4-1) unstable; urgency=medium
+
+  * New upstream release
+  * Drop no longer needed patches
+  * Add pybuild-plugin-pyproject to Build-Depends (setup.py replaced with
+    pyproject.toml)
+  * Add python3-pytest-xdist to Build-Depends (used during tests)
+  * Drop towncrier changelog generation as sphinxcontrib.towncrier.ext is not
+    packaged yet
+  * Add python3-myst-parser and python3-alabaster to Build-Depends
+    (used while building docs)
+  * Add 0006-use-os.path.expandvars-instead-of-external-one patch
+
+ -- Piotr Ożarowski <piotr@debian.org>  Thu, 18 Apr 2024 10:56:28 +0200
 
 yarl (1.8.2-3) unstable; urgency=medium
 
