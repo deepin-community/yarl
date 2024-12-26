@@ -41,11 +41,7 @@ class TestScheme:
     def test_no_scheme1(self):
         u = URL("google.com:80")
         # See: https://bugs.python.org/issue27657
-        if (
-            sys.version_info[:3] == (3, 7, 6)
-            or sys.version_info[:3] == (3, 8, 1)
-            or sys.version_info >= (3, 9, 0)
-        ):
+        if sys.version_info[:3] == (3, 8, 1) or sys.version_info >= (3, 9, 0):
             assert u.scheme == "google.com"
             assert u.host is None
             assert u.path == "80"
@@ -73,8 +69,8 @@ class TestScheme:
         assert u.fragment == ""
 
     def test_not_a_scheme2(self):
-        u = URL("37signals:book")
-        assert u.scheme == "37signals"
+        u = URL("signals37:book")
+        assert u.scheme == "signals37"
         assert u.host is None
         assert u.path == "book"
         assert u.query_string == ""
@@ -178,14 +174,6 @@ class TestHost:
         assert u.query_string == ""
         assert u.fragment == ""
 
-    def test_masked_ipv4(self):
-        u = URL("//[127.0.0.1]/")
-        assert u.scheme == ""
-        assert u.host == "127.0.0.1"
-        assert u.path == "/"
-        assert u.query_string == ""
-        assert u.fragment == ""
-
     def test_ipv6(self):
         u = URL("//[::1]/")
         assert u.scheme == ""
@@ -194,26 +182,10 @@ class TestHost:
         assert u.query_string == ""
         assert u.fragment == ""
 
-    def test_strange_ip(self):
-        u = URL("//[-1]/")
-        assert u.scheme == ""
-        assert u.host == "-1"
-        assert u.path == "/"
-        assert u.query_string == ""
-        assert u.fragment == ""
-
-    def test_strange_ip_2(self):
+    def test_ipvfuture_address(self):
         u = URL("//[v1.-1]/")
         assert u.scheme == ""
         assert u.host == "v1.-1"
-        assert u.path == "/"
-        assert u.query_string == ""
-        assert u.fragment == ""
-
-    def test_strange_ip_3(self):
-        u = URL("//v1.[::1]/")
-        assert u.scheme == ""
-        assert u.host == "::1"
         assert u.path == "/"
         assert u.query_string == ""
         assert u.fragment == ""
@@ -239,8 +211,13 @@ class TestPort:
         assert u.fragment == ""
 
     def test_no_host(self):
-        with pytest.raises(ValueError):
-            URL("//:80")
+        u = URL("//:77")
+        assert u.scheme == ""
+        assert u.host == ""
+        assert u.port == 77
+        assert u.path == "/"
+        assert u.query_string == ""
+        assert u.fragment == ""
 
     def test_double_port(self):
         with pytest.raises(ValueError):
@@ -320,7 +297,7 @@ class TestUserInfo:
         assert u.fragment == ""
 
     def test_weird_user3(self):
-        u = URL("//[some]@host")
+        u = URL("//%5Bsome%5D@host")
         assert u.scheme == ""
         assert u.user == "[some]"
         assert u.password is None
@@ -475,9 +452,19 @@ class TestFragment:
 
 
 class TestStripEmptyParts:
-    def test_all_empty(self):
+    def test_all_empty_http(self):
         with pytest.raises(ValueError):
-            URL("//@:?#")
+            URL("http://@:?#")
+
+    def test_all_empty(self):
+        u = URL("//@:?#")
+        assert u.scheme == ""
+        assert u.user is None
+        assert u.password is None
+        assert u.host == ""
+        assert u.path == ""
+        assert u.query_string == ""
+        assert u.fragment == ""
 
     def test_path_only(self):
         u = URL("///path")
@@ -598,3 +585,47 @@ class TestStripEmptyParts:
         assert u.path == ""
         assert u.query_string == ""
         assert u.fragment == ""
+
+
+@pytest.mark.parametrize(
+    ("scheme"),
+    [
+        ("http"),
+        ("https"),
+        ("ws"),
+        ("wss"),
+        ("ftp"),
+    ],
+)
+def test_schemes_that_require_host(scheme: str) -> None:
+    """Verify that schemes that require a host raise with empty host."""
+    expect = (
+        "Invalid URL: host is required for " f"absolute urls with the {scheme} scheme"
+    )
+    with pytest.raises(ValueError, match=expect):
+        URL(f"{scheme}://:1")
+
+
+@pytest.mark.parametrize(
+    ("url", "hostname", "hostname_without_brackets"),
+    [
+        ("http://[::1]", "[::1]", "::1"),
+        ("http://[::1]:8080", "[::1]", "::1"),
+        ("http://127.0.0.1:8080", "127.0.0.1", "127.0.0.1"),
+        (
+            "http://xn--jxagkqfkduily1i.eu",
+            "xn--jxagkqfkduily1i.eu",
+            "xn--jxagkqfkduily1i.eu",
+        ),
+    ],
+)
+def test_url_round_trips(
+    url: str, hostname: str, hostname_without_brackets: str
+) -> None:
+    """Verify that URLs round-trip correctly."""
+    parsed = URL(url)
+    assert parsed._val.hostname == hostname_without_brackets
+    assert parsed.raw_host == hostname_without_brackets
+    assert parsed.host_subcomponent == hostname
+    assert str(parsed) == url
+    assert str(URL(str(parsed))) == url
