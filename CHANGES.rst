@@ -14,6 +14,648 @@ Changelog
 
 .. towncrier release notes start
 
+1.19.0
+======
+
+*(2025-04-05)*
+
+
+Bug fixes
+---------
+
+- Fixed entire name being re-encoded when using :py:meth:`yarl.URL.with_suffix` -- by :user:`NTFSvolume`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1468`.
+
+
+Features
+--------
+
+- Started building armv7l wheels for manylinux -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1495`.
+
+
+Contributor-facing changes
+--------------------------
+
+- GitHub Actions CI/CD is now configured to manage caching pip-ecosystem
+  dependencies using `re-actors/cache-python-deps`_ -- an action by
+  :user:`webknjaz` that takes into account ABI stability and the exact
+  version of Python runtime.
+
+  .. _`re-actors/cache-python-deps`:
+     https://github.com/marketplace/actions/cache-python-deps
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1471`.
+
+- Increased minimum `propcache`_ version to 0.2.1 to fix failing tests -- by :user:`bdraco`.
+
+  .. _`propcache`:
+     https://github.com/aio-libs/propcache
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1479`.
+
+- Added all hidden folders to pytest's ``norecursedirs`` to prevent it
+  from trying to collect tests there -- by :user:`lysnikolaou`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1480`.
+
+
+Miscellaneous internal changes
+------------------------------
+
+- Improved accuracy of type annotations -- by :user:`Dreamsorcerer`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1484`.
+
+- Improved performance of parsing query strings -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1493`, :issue:`1497`.
+
+- Improved performance of the C unquoter -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1496`, :issue:`1498`.
+
+
+----
+
+
+1.18.3
+======
+
+*(2024-12-01)*
+
+
+Bug fixes
+---------
+
+- Fixed uppercase ASCII hosts being rejected by :meth:`URL.build() <yarl.URL.build>` and :py:meth:`~yarl.URL.with_host` -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`954`, :issue:`1442`.
+
+
+Miscellaneous internal changes
+------------------------------
+
+- Improved performances of multiple path properties on cache miss -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1443`.
+
+
+----
+
+
+1.18.2
+======
+
+*(2024-11-29)*
+
+
+No significant changes.
+
+
+----
+
+
+1.18.1
+======
+
+*(2024-11-29)*
+
+
+Miscellaneous internal changes
+------------------------------
+
+- Improved cache performance when :class:`~yarl.URL` objects are constructed from :py:meth:`~yarl.URL.build` with ``encoded=True`` -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1432`.
+
+- Improved cache performance for operations that produce a new :class:`~yarl.URL` object -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1434`, :issue:`1436`.
+
+
+----
+
+
+1.18.0
+======
+
+*(2024-11-21)*
+
+
+Features
+--------
+
+- Added ``keep_query`` and ``keep_fragment`` flags in the :py:meth:`yarl.URL.with_path`, :py:meth:`yarl.URL.with_name` and :py:meth:`yarl.URL.with_suffix` methods, allowing users to optionally retain the query string and fragment in the resulting URL when replacing the path -- by :user:`paul-nameless`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`111`, :issue:`1421`.
+
+
+Contributor-facing changes
+--------------------------
+
+- Started running downstream ``aiohttp`` tests in CI -- by :user:`Cycloctane`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1415`.
+
+
+Miscellaneous internal changes
+------------------------------
+
+- Improved performance of converting :class:`~yarl.URL` to a string -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1422`.
+
+
+----
+
+
+1.17.2
+======
+
+*(2024-11-17)*
+
+
+Bug fixes
+---------
+
+- Stopped implicitly allowing the use of Cython pre-release versions when
+  building the distribution package -- by :user:`ajsanchezsanz` and
+  :user:`markgreene74`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1411`, :issue:`1412`.
+
+- Fixed a bug causing :attr:`~yarl.URL.port` to return the default port when the given port was zero
+  -- by :user:`gmacon`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1413`.
+
+
+Features
+--------
+
+- Make error messages include details of incorrect type when ``port`` is not int in :py:meth:`~yarl.URL.build`.
+  -- by :user:`Cycloctane`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1414`.
+
+
+Packaging updates and notes for downstreams
+-------------------------------------------
+
+- Stopped implicitly allowing the use of Cython pre-release versions when
+  building the distribution package -- by :user:`ajsanchezsanz` and
+  :user:`markgreene74`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1411`, :issue:`1412`.
+
+
+Miscellaneous internal changes
+------------------------------
+
+- Improved performance of the :py:meth:`~yarl.URL.joinpath` method -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1418`.
+
+
+----
+
+
+1.17.1
+======
+
+*(2024-10-30)*
+
+
+Miscellaneous internal changes
+------------------------------
+
+- Improved performance of many :class:`~yarl.URL` methods -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1396`, :issue:`1397`, :issue:`1398`.
+
+- Improved performance of passing a `dict` or `str` to :py:meth:`~yarl.URL.extend_query` -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1401`.
+
+
+----
+
+
+1.17.0
+======
+
+*(2024-10-28)*
+
+
+Features
+--------
+
+- Added :attr:`~yarl.URL.host_port_subcomponent` which returns the :rfc:`3986#section-3.2.2` host and :rfc:`3986#section-3.2.3` port subcomponent -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1375`.
+
+
+----
+
+
+1.16.0
+======
+
+*(2024-10-21)*
+
+
+Bug fixes
+---------
+
+- Fixed blocking I/O to load Python code when creating a new :class:`~yarl.URL` with non-ascii characters in the network location part -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1342`.
+
+
+Removals and backward incompatible breaking changes
+---------------------------------------------------
+
+- Migrated to using a single cache for encoding hosts -- by :user:`bdraco`.
+
+  Passing ``ip_address_size`` and ``host_validate_size`` to :py:meth:`~yarl.cache_configure` is deprecated in favor of the new ``encode_host_size`` parameter and will be removed in a future release. For backwards compatibility, the old parameters affect the ``encode_host`` cache size.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1348`, :issue:`1357`, :issue:`1363`.
+
+
+Miscellaneous internal changes
+------------------------------
+
+- Improved performance of constructing :class:`~yarl.URL` -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1336`.
+
+- Improved performance of calling :py:meth:`~yarl.URL.build` and constructing unencoded :class:`~yarl.URL` -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1345`.
+
+- Reworked the internal encoding cache to improve performance on cache hit -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1369`.
+
+
+----
+
+
+1.15.5
+======
+
+*(2024-10-18)*
+
+
+Miscellaneous internal changes
+------------------------------
+
+- Improved performance of the :py:meth:`~yarl.URL.joinpath` method -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1304`.
+
+- Improved performance of the :py:meth:`~yarl.URL.extend_query` method -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1305`.
+
+- Improved performance of the :py:meth:`~yarl.URL.origin` method -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1306`.
+
+- Improved performance of the :py:meth:`~yarl.URL.with_path` method -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1307`.
+
+- Improved performance of the :py:meth:`~yarl.URL.with_query` method -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1308`, :issue:`1328`.
+
+- Improved performance of the :py:meth:`~yarl.URL.update_query` method -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1309`, :issue:`1327`.
+
+- Improved performance of the :py:meth:`~yarl.URL.join` method -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1313`.
+
+- Improved performance of :class:`~yarl.URL` equality checks -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1315`.
+
+- Improved performance of :class:`~yarl.URL` methods that modify the network location -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1316`.
+
+- Improved performance of the :py:meth:`~yarl.URL.with_fragment` method -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1317`.
+
+- Improved performance of calculating the hash of :class:`~yarl.URL` objects -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1318`.
+
+- Improved performance of the :py:meth:`~yarl.URL.relative` method -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1319`.
+
+- Improved performance of the :py:meth:`~yarl.URL.with_name` method -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1320`.
+
+- Improved performance of :attr:`~yarl.URL.parent` -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1321`.
+
+- Improved performance of the :py:meth:`~yarl.URL.with_scheme` method -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1322`.
+
+
+----
+
+
+1.15.4
+======
+
+*(2024-10-16)*
+
+
+Miscellaneous internal changes
+------------------------------
+
+- Improved performance of the quoter when all characters are safe -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1288`.
+
+- Improved performance of unquoting strings -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1292`, :issue:`1293`.
+
+- Improved performance of calling :py:meth:`~yarl.URL.build` -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1297`.
+
+
+----
+
+
+1.15.3
+======
+
+*(2024-10-15)*
+
+
+Bug fixes
+---------
+
+- Fixed :py:meth:`~yarl.URL.build` failing to validate paths must start with a ``/`` when passing ``authority`` -- by :user:`bdraco`.
+
+  The validation only worked correctly when passing ``host``.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1265`.
+
+
+Removals and backward incompatible breaking changes
+---------------------------------------------------
+
+- Removed support for Python 3.8 as it has reached end of life -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1203`.
+
+
+Miscellaneous internal changes
+------------------------------
+
+- Improved performance of constructing :class:`~yarl.URL` when the net location is only the host -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1271`.
+
+
+----
+
+
+1.15.2
+======
+
+*(2024-10-13)*
+
+
+Miscellaneous internal changes
+------------------------------
+
+- Improved performance of converting :class:`~yarl.URL` to a string -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1234`.
+
+- Improved performance of :py:meth:`~yarl.URL.joinpath` -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1248`, :issue:`1250`.
+
+- Improved performance of constructing query strings from :class:`~multidict.MultiDict` -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1256`.
+
+- Improved performance of constructing query strings with ``int`` values -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1259`.
+
+
+----
+
+
+1.15.1
+======
+
+*(2024-10-12)*
+
+
+Miscellaneous internal changes
+------------------------------
+
+- Improved performance of calling :py:meth:`~yarl.URL.build` -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1222`.
+
+- Improved performance of all :class:`~yarl.URL` methods that create new :class:`~yarl.URL` objects -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1226`.
+
+- Improved performance of :class:`~yarl.URL` methods that modify the network location -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1229`.
+
+
+----
+
+
+1.15.0
+======
+
+*(2024-10-11)*
+
+
+Bug fixes
+---------
+
+- Fixed validation with :py:meth:`~yarl.URL.with_scheme` when passed scheme is not lowercase -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1189`.
+
+
+Features
+--------
+
+- Started building ``armv7l`` wheels -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1204`.
+
+
+Miscellaneous internal changes
+------------------------------
+
+- Improved performance of constructing unencoded :class:`~yarl.URL` objects -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1188`.
+
+- Added a cache for parsing hosts to reduce overhead of encoding :class:`~yarl.URL` -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1190`.
+
+- Improved performance of constructing query strings from :class:`~collections.abc.Mapping` -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1193`.
+
+- Improved performance of converting :class:`~yarl.URL` objects to strings -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1198`.
+
+
+----
+
+
+1.14.0
+======
+
+*(2024-10-08)*
+
+
+Packaging updates and notes for downstreams
+-------------------------------------------
+
+- Switched to using the :mod:`propcache <propcache.api>` package for property caching
+  -- by :user:`bdraco`.
+
+  The :mod:`propcache <propcache.api>` package is derived from the property caching
+  code in :mod:`yarl` and has been broken out to avoid maintaining it for multiple
+  projects.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1169`.
+
+
+Contributor-facing changes
+--------------------------
+
+- Started testing with Hypothesis -- by :user:`webknjaz` and :user:`bdraco`.
+
+  Special thanks to :user:`Zac-HD` for helping us get started with this framework.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`860`.
+
+
+Miscellaneous internal changes
+------------------------------
+
+- Improved performance of :py:meth:`~yarl.URL.is_default_port` when no explicit port is set -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1168`.
+
+- Improved performance of converting :class:`~yarl.URL` to a string when no explicit port is set -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1170`.
+
+- Improved performance of the :py:meth:`~yarl.URL.origin` method -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1175`.
+
+- Improved performance of encoding hosts -- by :user:`bdraco`.
+
+  *Related issues and pull requests on GitHub:*
+  :issue:`1176`.
+
+
+----
+
+
 1.13.1
 ======
 

@@ -1,3 +1,21 @@
+yarl (1.19.0-1) unstable; urgency=medium
+
+  * New upstream release
+
+ -- Piotr Ożarowski <piotr@debian.org>  Wed, 09 Apr 2025 10:22:58 +0200
+
+yarl (1.18.3-1) unstable; urgency=medium
+
+  * Team upload.
+  * New upstream release.
+  * Refresh patches.
+  * Upstream has added dependencies on propcache and hypothesis.
+  * Update Standards-Version.
+  * Add more detail to debian/copyright.
+  * Install NOTICE file in package as required by Apache 2 license.
+
+ -- Edward Betts <edward@4angle.com>  Wed, 19 Mar 2025 12:47:03 +0000
+
 yarl (1.13.1-1) unstable; urgency=medium
 
   * New upstream release

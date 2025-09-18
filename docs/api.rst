@@ -208,6 +208,29 @@ There are two kinds of properties: *decoded* and *encoded* (with
 
    .. versionadded:: 1.13
 
+.. attribute:: URL.host_port_subcomponent
+
+   :rfc:`3986#section-3.2.2` host and :rfc:`3986#section-3.2.3` port subcomponent part of URL, ``None`` for relative URLs
+   (:ref:`yarl-api-relative-urls`).
+
+   Trailing dots are stripped from the host to ensure
+   this value can be used for an HTTP Host header.
+
+   The port is omitted if it is the default port for the scheme.
+
+   .. doctest::
+
+      >>> URL('http://хост.домен:81').host_port_subcomponent
+      'xn--n1agdj.xn--d1acufc:81'
+      >>> URL('https://[::1]:8443').host_port_subcomponent
+      '[::1]:8443'
+      >>> URL('http://example.com./').host_port_subcomponent
+      'example.com'
+      >>> URL('http://[::1]').host_port_subcomponent
+      '[::1]'
+
+   .. versionadded:: 1.17
+
 .. attribute:: URL.port
 
    *port* part of URL, with scheme-based fallback.
@@ -629,9 +652,15 @@ section generates a new :class:`URL` instance.
       >>> URL('http://example.com:8888').with_port(None)
       URL('http://example.com')
 
-.. method:: URL.with_path(path)
+.. method:: URL.with_path(path, *, keep_query=False, keep_fragment=False)
 
    Return a new URL with *path* replaced, encode *path* if needed.
+
+   If ``keep_query=True`` or ``keep_fragment=True`` it retains the existing query or fragment in the URL.
+
+   .. versionchanged:: 1.18
+
+      Added *keep_query* and *keep_fragment* parameters.
 
    .. doctest::
 
@@ -834,12 +863,18 @@ section generates a new :class:`URL` instance.
       >>> URL('http://example.com/path#frag').with_fragment(None)
       URL('http://example.com/path')
 
-.. method:: URL.with_name(name)
+.. method:: URL.with_name(name, *, keep_query=False, keep_fragment=False)
 
    Return a new URL with *name* (last part of *path*) replaced and
    cleaned up *query* and *fragment* parts.
 
    Name is encoded if needed.
+
+   If ``keep_query=True`` or ``keep_fragment=True`` it retains the existing query or fragment in the URL.
+
+   .. versionchanged:: 1.18
+
+      Added *keep_query* and *keep_fragment* parameters.
 
    .. doctest::
 
@@ -848,12 +883,18 @@ section generates a new :class:`URL` instance.
       >>> URL('http://example.com/path/to').with_name("ім'я")
       URL('http://example.com/path/%D1%96%D0%BC%27%D1%8F')
 
-.. method:: URL.with_suffix(suffix)
+.. method:: URL.with_suffix(suffix, *, keep_query=False, keep_fragment=False)
 
    Return a new URL with *suffix* (file extension of *name*) replaced and
    cleaned up *query* and *fragment* parts.
 
    Name is encoded if needed.
+
+   If ``keep_query=True`` or ``keep_fragment=True`` it retains the existing query or fragment in the URL.
+
+   .. versionchanged:: 1.18
+
+      Added *keep_query* and *keep_fragment* parameters.
 
    .. doctest::
 
@@ -1037,22 +1078,20 @@ Default port substitution
 Cache control
 -------------
 
-IDNA conversion, host validation, and IP Address parsing used for host
-encoding are quite expensive operations, that's why the ``yarl``
-library caches these calls by storing last ``256`` results in the
+IDNA conversion and host encoding are quite expensive operations,
+that's why the ``yarl`` library caches these calls by storing results in the
 global LRU cache.
 
 .. function:: cache_clear()
 
-   Clear IDNA, host validation, and IP Address caches.
+   Clear IDNA and host encoding cache.
 
 
 .. function:: cache_info()
 
-   Return a dictionary with ``"idna_encode"``, ``"idna_decode"``, ``"ip_address"``,
-   and ``"host_validate"`` keys, each value
-   points to corresponding ``CacheInfo`` structure (see :func:`functools.lru_cache` for
-   details):
+   Return a dictionary with ``"idna_encode"``, ``"idna_decode"``, and
+   ``"encode_host"`` keys, each value points to corresponding ``CacheInfo``
+   structure (see :func:`functools.lru_cache` for details):
 
    .. doctest::
       :options: +SKIP
@@ -1060,19 +1099,26 @@ global LRU cache.
       >>> yarl.cache_info()
       {'idna_encode': CacheInfo(hits=5, misses=5, maxsize=256, currsize=5),
        'idna_decode': CacheInfo(hits=24, misses=15, maxsize=256, currsize=15),
-       'ip_address': CacheInfo(hits=46933, misses=84, maxsize=256, currsize=101),
-       'host_validate': CacheInfo(hits=0, misses=0, maxsize=256, currsize=0)}
+       'encode_host': CacheInfo(hits=0, misses=0, maxsize=512, currsize=0)}
 
+   .. versionchanged:: 1.16
 
+      ``ip_address``, and ``host_validate`` are deprecated
+      in favor of a single ``encode_host`` cache.
 
-.. function:: cache_configure(*, idna_encode_size=256, idna_decode_size=256, ip_address_size=256, host_validate_size=256)
+.. function:: cache_configure(*, idna_encode_size=256, idna_decode_size=256, encode_host_size=512)
 
-   Set the IP Address, host validation, and IDNA encode and
-   decode cache sizes (``256`` for each by default).
+   Set the IDNA encode, IDNA decode, and host encode
+   cache sizes.
 
    Pass ``None`` to make the corresponding cache unbounded (may speed up host encoding
    operation a little but the memory footprint can be very high,
    please use with caution).
+
+   .. versionchanged:: 1.16
+
+      ``ip_address_size`` and ``host_validate_size``
+      are deprecated in favor of a single ``encode_host`` cache.
 
 References
 ----------
