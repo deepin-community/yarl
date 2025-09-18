@@ -11,6 +11,8 @@ Towncrier
 Twitter
 UTF
 aiohttp
+armv
+ascii
 backend
 boolean
 booleans
@@ -34,6 +36,7 @@ manylinux
 multi
 nightlies
 pre
+pytest
 rc
 reStructuredText
 reencoding
@@ -46,5 +49,7 @@ subclasses
 subcomponent
 svetlov
 uncompiled
+unencoded
+unquoter
 v1
 yarl
